@@ -88,6 +88,9 @@ N=1000: Time=0.839287
 
 Am adăugat poza în arhivă sub numele `timpi.png`.
 
+![Screenshot 2025-05-18 182627](https://github.com/user-attachments/assets/4ddb72a7-99b0-4143-afa6-1c6476c17da5)
+
+
 ### Observații
 
 - Implementarea `neopt` are cel mai mare timp de execuție pentru valorile lui N. Timpul crește exponențial cu dimensiunea, indicând un cod neoptimizat, cu acces ineficient la memorie și/sau fără vectorizare.
