@@ -138,6 +138,93 @@ Această versiune utilizează biblioteca BLAS (Basic Linear Algebra Subprograms)
 
 Am folosit ChatGPT 4 pentru a rafina implementările și a obține variantele optimizate și neoptimizate, precum și pentru a înțelege mai bine avantajele folosirii BLAS și a optimizărilor manuale.
 
+'''
+request:
+C = B * At
+D = Ct * A
+i = 0
+while (i < N) {
+    y = Ct * x
+    x = C * y
+    i += 1
+}
+y = D * x
+
+hi,i need to implement these operations only using blas operations,this is the signature of the function:
+double* my_solver(int N, double *A, double *B, double *x) {
+	return NULL;
+}
+///raspuns:
+To implement the following operations using only BLAS routines inside the my_solver function:
+
+c
+Copy
+Edit
+C = B * At        // At is A transposed
+D = Ct * A        // Ct is C transposed
+loop N times:
+    y = Ct * x
+    x = C * y
+y = D * x
+You can use BLAS Level 3 routine cblas_dgemm for matrix-matrix multiplication and BLAS Level 2 routine cblas_dgemv for matrix-vector multiplication.
+
+✅ Solution:
+Here's how you can implement it:
+
+c
+#include <cblas.h>
+#include <stdlib.h>
+
+double* my_solver(int N, double *A, double *B, double *x) {
+    // Allocate matrices and vectors
+    double *C = (double *)malloc(N * N * sizeof(double));
+    double *Ct = (double *)malloc(N * N * sizeof(double));
+    double *D = (double *)malloc(N * N * sizeof(double));
+    double *y = (double *)malloc(N * sizeof(double));
+    double *tmp = (double *)malloc(N * sizeof(double));
+
+    // C = B * At  -> At is A transposed
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
+                N, N, N, 1.0, B, N, A, N, 0.0, C, N);
+
+    // Ct = C^T  (we transpose C manually)
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j)
+            Ct[j * N + i] = C[i * N + j];
+
+    // D = Ct * A
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                N, N, N, 1.0, Ct, N, A, N, 0.0, D, N);
+
+    // Copy x to tmp (x will be updated)
+    for (int i = 0; i < N; ++i)
+        tmp[i] = x[i];
+
+    // Repeat N times:
+    //   y = Ct * x
+    //   x = C * y
+    for (int iter = 0; iter < N; ++iter) {
+        cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                    N, N, 1.0, Ct, N, tmp, 1, 0.0, y, 1);
+
+        cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                    N, N, 1.0, C, N, y, 1, 0.0, tmp, 1);
+    }
+
+    // Final y = D * x (x is now in tmp)
+    cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                N, N, 1.0, D, N, tmp, 1, 0.0, y, 1);
+
+    // Cleanup
+    free(C);
+    free(Ct);
+    free(D);
+    free(tmp);
+
+    return y;
+}
+'''
+
 ---
 
 ## Bucla N
