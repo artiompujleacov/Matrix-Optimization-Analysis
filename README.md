@@ -268,6 +268,207 @@ void transpose_matrix(int N, double *src, double *dst) {
 But again: this is outside of BLAS, and it's rarely necessary unless some other library requires the transposed matrix to be stored explicitly.
 ```
 
+```
+request:
+now using the same signature,make a function just to manually do the operations i mentioned without using any external libraries
+
+double* my_solver(int N, double *A, double *B, double *x) {
+	return NULL;
+}
+
+raspuns:
+Sure! Here's the complete function with a brief explanation and proper comments to help you understand what's happening at each step:
+
+This implementation follows the operation sequence:
+
+java
+C = B * At       // At is the transpose of A
+D = Ct * A       // Ct is the transpose of C
+for i in 0 to N:
+    y = Ct * x
+    x = C * y
+y = D * x        // Final result
+Below is the full C function:
+
+c
+#include "utils.h"
+#include <stdlib.h>
+#include <string.h>
+
+/*
+ *
+ *
+ *
+ *   C = B * At
+ *   D = Ct * A
+ *   for i = 0..N:
+ *     y = Ct * x
+ *     x = C * y
+ *   y = D * x
+ *
+ */
+double *my_solver(int N, double *A, double *B, double *x)
+{
+	double *At = (double *)malloc(N * N * sizeof(double));
+	double *C = (double *)malloc(N * N * sizeof(double));
+	double *Ct = (double *)malloc(N * N * sizeof(double));
+	double *D = (double *)malloc(N * N * sizeof(double));
+	double *y = (double *)malloc(N * sizeof(double));
+	double *tmp = (double *)malloc(N * sizeof(double));
+	double *result = (double *)malloc(N * sizeof(double));
+
+	for (int i = 0; i < N; ++i)
+		for (int j = 0; j < N; ++j)
+			At[j * N + i] = A[i * N + j];
+
+	// C = B * At
+	for (int i = 0; i < N; ++i)
+		for (int j = 0; j < N; ++j)
+		{
+			C[i * N + j] = 0.0;
+			for (int k = 0; k < N; ++k)
+				C[i * N + j] += B[i * N + k] * At[k * N + j];
+		}
+
+	// Ct = transpose C
+	for (int i = 0; i < N; ++i)
+		for (int j = 0; j < N; ++j)
+			Ct[j * N + i] = C[i * N + j];
+
+	// D = Ct * A
+	for (int i = 0; i < N; ++i)
+		for (int j = 0; j < N; ++j)
+		{
+			D[i * N + j] = 0.0;
+			for (int k = 0; k < N; ++k)
+				D[i * N + j] += Ct[i * N + k] * A[k * N + j];
+		}
+
+	memcpy(tmp, x, N * sizeof(double));
+
+	//y = Ct * x; x = C * y;
+	for (int iter = 0; iter < N; ++iter)
+	{
+		// y = Ct * tmp
+		for (int i = 0; i < N; ++i)
+		{
+			y[i] = 0.0;
+			for (int j = 0; j < N; ++j)
+				y[i] += Ct[i * N + j] * tmp[j];
+		}
+
+		// tmp = C * y
+		for (int i = 0; i < N; ++i)
+		{
+			tmp[i] = 0.0;
+			for (int j = 0; j < N; ++j)
+				tmp[i] += C[i * N + j] * y[j];
+		}
+	}
+
+	// result = D * tmp
+	for (int i = 0; i < N; ++i)
+	{
+		result[i] = 0.0;
+		for (int j = 0; j < N; ++j)
+			result[i] += D[i * N + j] * tmp[j];
+	}
+
+	free(At);
+	free(C);
+	free(Ct);
+	free(D);
+	free(y);
+	free(tmp);
+
+	return result;
+}
+✅ This implementation is pure C, without using BLAS or any external libraries.
+
+💡 If performance becomes important, this same structure can later be rewritten using cblas_dgemm and cblas_dgemv from BLAS for significant speedups.
+
+Let me know if you want that BLAS version too!
+```
+
+```
+request:
+now suggest a way to optimize the give function to make it faster,without using external 
+librarier,without chnaging the complexity of the operations
+
+raspuns:
+To optimize your function without using external libraries and without changing the algorithmic complexity, you can apply cache-friendly and low-level optimizations. These focus on improving data locality, reducing memory access cost, and avoiding redundant computations.
+
+✅ Suggested Optimizations:
+1. Loop Order Optimization for Better Cache Locality
+Matrix multiplications currently use:
+
+c
+for (i)
+  for (j)
+    for (k)
+      result[i][j] += A[i][k] * B[k][j];
+This accesses matrix B[k][j] column-wise (non-contiguous in memory), which is cache-inefficient. You can change the loop order to:
+
+c
+for (i)
+  for (k)
+    for (j)
+      result[i][j] += A[i][k] * B[k][j];
+This makes all three accesses mostly row-wise and improves CPU cache performance significantly.
+
+2. Manual Blocking (Tiling)
+Divide large matrices into small blocks to take better advantage of the CPU cache (L1/L2).
+
+Example block size:
+
+c
+#define BLOCK_SIZE 32
+Then modify the matrix multiplication to work in blocks:
+
+c
+for (ii = 0; ii < N; ii += BLOCK_SIZE)
+  for (kk = 0; kk < N; kk += BLOCK_SIZE)
+    for (jj = 0; jj < N; jj += BLOCK_SIZE)
+      for (i = ii; i < min(ii + BLOCK_SIZE, N); ++i)
+        for (k = kk; k < min(kk + BLOCK_SIZE, N); ++k)
+          for (j = jj; j < min(jj + BLOCK_SIZE, N); ++j)
+            C[i * N + j] += A[i * N + k] * B[k * N + j];
+This improves spatial locality and cache reuse.
+
+3. Avoid Recomputing Transposes
+Instead of repeatedly computing the transpose, compute it once and reuse it. You already do this for At and Ct, which is great — just ensure you never re-transpose or access transposed matrices inefficiently afterward.
+
+4. Use restrict Keyword (Optional)
+If you are compiling with a modern compiler (e.g., GCC/Clang), you can tell the compiler that pointers don’t alias:
+
+c
+double *restrict A, *restrict B, *restrict C;
+This allows the compiler to optimize more aggressively.
+
+5. Minimize memcpy
+The line:
+
+c
+memcpy(tmp, x, N * sizeof(double));
+is fine, but if x is not reused afterward, consider just working with tmp = x directly (carefully, only if you're sure x won't be reused or overwritten unexpectedly). This saves memory copy time.
+
+6. Unroll Small Loops
+For small fixed-size loops like:
+
+c
+for (int j = 0; j < N; ++j)
+If N is small and fixed, manually unroll the loop or let the compiler do it using #pragma unroll.
+
+Summary Table
+Optimization	Gains	Cost / Risk
+Loop order change (ijk → ikj)	High (cache-friendly)	None
+Manual tiling	Very High	More code
+Avoid recomputing transposes	Moderate	Already done
+Use restrict keyword	Moderate	Compiler-dependent
+Minimize memcpy usage	Low	Code clarity
+Manual loop unrolling	Low-Moderate	Code complexity
+```
+
 ---
 
 ## Bucla N
