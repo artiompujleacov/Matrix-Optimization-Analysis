@@ -138,7 +138,7 @@ Această versiune utilizează biblioteca BLAS (Basic Linear Algebra Subprograms)
 
 Am folosit ChatGPT 4 pentru a rafina implementările și a obține variantele optimizate și neoptimizate, precum și pentru a înțelege mai bine avantajele folosirii BLAS și a optimizărilor manuale.
 
-'''
+```
 request:
 C = B * At
 D = Ct * A
@@ -158,8 +158,6 @@ double* my_solver(int N, double *A, double *B, double *x) {
 To implement the following operations using only BLAS routines inside the my_solver function:
 
 c
-Copy
-Edit
 C = B * At        // At is A transposed
 D = Ct * A        // Ct is C transposed
 loop N times:
@@ -223,7 +221,7 @@ double* my_solver(int N, double *A, double *B, double *x) {
 
     return y;
 }
-'''
+```
 
 ---
 
