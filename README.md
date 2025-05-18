@@ -154,7 +154,10 @@ hi,i need to implement these operations only using blas operations,this is the s
 double* my_solver(int N, double *A, double *B, double *x) {
 	return NULL;
 }
-///raspuns:
+
+
+
+raspuns:
 To implement the following operations using only BLAS routines inside the my_solver function:
 
 c
@@ -221,6 +224,48 @@ double* my_solver(int N, double *A, double *B, double *x) {
 
     return y;
 }
+```
+
+```
+request:
+how can i implement the manual transpose of the matrix using blas functions
+
+raspuns:
+BLAS does not provide a built-in function to transpose a matrix manually. The BLAS interface is designed for high-performance linear algebra operations, and transposition is typically handled implicitly via arguments in BLAS routines (e.g., using CblasTrans in cblas_dgemm).
+
+✅ Option 1: Use Transposition Flags in BLAS
+Instead of manually transposing, you can tell BLAS to treat the matrix as transposed using the TransA or TransB flags.
+
+Example:
+
+c
+cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, ...);  // Use Aᵗ directly
+So you don't need to transpose A or C manually for:
+
+c
+C = B * At
+→ use:
+
+c
+cblas_dgemm(..., B, ..., A, ..., CblasTrans);
+And for:
+
+c
+D = Ct * A
+→ use:
+
+c
+cblas_dgemm(..., C, ..., A, ..., CblasTrans, CblasNoTrans); // Treat C as transposed
+✅ Option 2: Manual Transpose (only if required)
+If you really need a separate transposed copy of a matrix, do it like this:
+
+c
+void transpose_matrix(int N, double *src, double *dst) {
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j)
+            dst[j * N + i] = src[i * N + j]; // dst is the transpose of src
+}
+But again: this is outside of BLAS, and it's rarely necessary unless some other library requires the transposed matrix to be stored explicitly.
 ```
 
 ---
